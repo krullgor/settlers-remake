@@ -173,7 +173,9 @@ public class AdvancedDatFileReader implements DatFileSet {
 			0x00
 	};
 
-	static final int SEQUENCE_TYPE_COUNT = 6;
+	static final int SEQUENCE_TYPE_COUNT = 8;
+	static final int ID_NONE = 0x1904;
+
 
 	static final int ID_SETTLERS = 0x106;
 
@@ -185,6 +187,10 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 	// fullscreen images
 	static final int ID_GUIS = 0x11306;
+
+	static final int ID_ANIMATIONINFO = 0x21702;
+
+	static final int ID_PALETTE = 0x2607;
 
 	private final DatBitmapTranslator<SettlerImage> settlerTranslator;
 
@@ -229,6 +235,8 @@ public class AdvancedDatFileReader implements DatFileSet {
 	private int[] guistarts;
 	private final Sequence<GuiImage> guisequence = new GuiImageSequence();
 
+	private int[] animationinfostarts;
+
 	private final SequenceList<Image> directSettlerList;
 
 	private static final byte[] START = new byte[] {
@@ -258,9 +266,10 @@ public class AdvancedDatFileReader implements DatFileSet {
 	 * Initializes the reader, reads the index.
 	 */
 	@SuppressWarnings("unchecked")
-	public void initialize() {
+	public void initialize(boolean overrideDifferences) {
 		try {
 			try {
+				System.out.println("loading file " + file.getName());
 				reader = new ByteReader(new RandomAccessFile(file, "r"));
 				initFromReader(file, reader);
 
@@ -282,27 +291,29 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		settlersequences = new Sequence[settlerstarts.length];
 
-		int torsodifference = settlerstarts.length - torsostarts.length;
-		if (torsodifference != 0) {
-			int[] oldtorsos = torsostarts;
-			torsostarts = new int[settlerstarts.length];
-			for (int i = 0; i < oldtorsos.length; i++) {
-				torsostarts[i + torsodifference] = oldtorsos[i];
+		if (overrideDifferences){
+			int torsodifference = settlerstarts.length - torsostarts.length;
+			if (torsodifference != 0) {
+				int[] oldtorsos = torsostarts;
+				torsostarts = new int[settlerstarts.length];
+				for (int i = 0; i < oldtorsos.length; i++) {
+					torsostarts[i + torsodifference] = oldtorsos[i];
+				}
+				for (int i = 0; i < torsodifference; i++) {
+					torsostarts[i] = -1;
+				}
 			}
-			for (int i = 0; i < torsodifference; i++) {
-				torsostarts[i] = -1;
-			}
-		}
 
-		int shadowdifference = settlerstarts.length - shadowstarts.length;
-		if (shadowstarts.length < settlerstarts.length) {
-			int[] oldshadows = shadowstarts;
-			shadowstarts = new int[settlerstarts.length];
-			for (int i = 0; i < oldshadows.length; i++) {
-				shadowstarts[i + shadowdifference] = oldshadows[i];
-			}
-			for (int i = 0; i < shadowdifference; i++) {
-				torsostarts[i] = -1;
+			int shadowdifference = settlerstarts.length - shadowstarts.length;
+			if (shadowstarts.length < settlerstarts.length) {
+				int[] oldshadows = shadowstarts;
+				shadowstarts = new int[settlerstarts.length];
+				for (int i = 0; i < oldshadows.length; i++) {
+					shadowstarts[i + shadowdifference] = oldshadows[i];
+				}
+				for (int i = 0; i < shadowdifference; i++) {
+					torsostarts[i] = -1;
+				}
 			}
 		}
 	}
@@ -335,17 +346,12 @@ public class AdvancedDatFileReader implements DatFileSet {
 					"The length stored in the dat file is not the file length.");
 		}
 
-		// ignore unknown bytes.
-		reader.read32();
-
 		// read settler image pointer
 		int[] sequenceIndexStarts = new int[SEQUENCE_TYPE_COUNT];
 		for (int i = 0; i < SEQUENCE_TYPE_COUNT; i++) {
 			sequenceIndexStarts[i] = reader.read32();
 		}
 
-		// ignore unknown bytes.
-		reader.read32();
 		reader.assumeToRead(FILE_HEADER_END);
 		return sequenceIndexStarts;
 	}
@@ -371,6 +377,10 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		int sequenceType = reader.read32();
 
+		if (sequenceType == ID_NONE || sequenceType == ID_PALETTE){
+			return;
+		}
+
 		int byteCount = reader.read16();
 		int pointerCount = reader.read16();
 
@@ -389,15 +399,16 @@ public class AdvancedDatFileReader implements DatFileSet {
 			settlerstarts = sequenceIndexPointers;
 		} else if (sequenceType == ID_TORSOS) {
 			torsostarts = sequenceIndexPointers;
-
 		} else if (sequenceType == ID_LANDSCAPE) {
 			landscapestarts = sequenceIndexPointers;
-
 		} else if (sequenceType == ID_SHADOWS) {
 			shadowstarts = sequenceIndexPointers;
-
 		} else if (sequenceType == ID_GUIS) {
 			guistarts = sequenceIndexPointers;
+		} else if (sequenceType == ID_ANIMATIONINFO){
+			animationinfostarts = sequenceIndexPointers;
+		} else {
+			System.out.println(String.join(", ", ""+sequenceIndexPointers));
 		}
 	}
 
@@ -405,23 +416,32 @@ public class AdvancedDatFileReader implements DatFileSet {
 		if (settlerstarts == null) {
 			settlerstarts = new int[0];
 		}
+		System.out.println("found " + settlerstarts.length + " settler images");
 		if (torsostarts == null) {
 			torsostarts = new int[0];
 		}
+		System.out.println("found " + torsostarts.length + " torso images");
 		if (shadowstarts == null) {
 			shadowstarts = new int[0];
 		}
+		System.out.println("found " + shadowstarts.length + " shadow images");
 		if (landscapestarts == null) {
 			landscapestarts = new int[0];
 		}
+		System.out.println("found " + landscapestarts.length + " landscape images");
 		if (guistarts == null) {
 			guistarts = new int[0];
 		}
+		System.out.println("found " + animationinfostarts.length + " animation infos");
+		if (animationinfostarts == null){
+			animationinfostarts = new int[0];
+		}
+		System.out.println("found " + guistarts.length + " gui images");
 	}
 
-	private void initializeIfNeeded() {
+	private void initializeIfNeeded(boolean overrideDifferences) {
 		if (settlersequences == null) {
-			initialize();
+			initialize(overrideDifferences);
 		}
 	}
 
@@ -437,7 +457,7 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		@Override
 		public Sequence<Image> get(int index) {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			if (settlersequences[index] == null) {
 				settlersequences[index] = NULL_SETTLER_SEQUENCE;
 				try {
@@ -452,9 +472,95 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		@Override
 		public int size() {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			return settlersequences.length;
 		}
+	}
+
+	public AnimationFrameInfo[][] getAnimations() throws IOException {
+		initializeIfNeeded(false);
+		AnimationFrameInfo[][] animations = new AnimationFrameInfo[animationinfostarts.length][];
+		for (int i = 0; i < animationinfostarts.length; i++){
+			reader.skipTo(animationinfostarts[i]);
+			int frameCount = reader.read32();
+			//System.out.println("animationinfo " + i + " frames:" + frameCount);
+
+			AnimationFrameInfo[] animation = new AnimationFrameInfo[frameCount];
+			for (int j = 0; j < frameCount; j++){
+				int posX = reader.read16signed();
+				int posY = reader.read16signed();
+				int objectId = reader.read16();
+				int objectFile = reader.read16();
+				int torsoId = reader.read16();
+				int torsoFile = reader.read16();
+				int shadowId = reader.read16();
+				int shadowFile = reader.read16();
+				int objectFrame = reader.read16();
+				int torsoFrame = reader.read16();
+				int soundFlag1 = reader.read16signed();
+				int soundFlag2 = reader.read16signed();
+
+				AnimationFrameInfo animationFrameInfo = new AnimationFrameInfo(
+						posX,
+						posY,
+						objectId,
+						objectFile,
+						torsoId,
+						torsoFile,
+						shadowId,
+						shadowFile,
+						objectFrame,
+						torsoFrame,
+						soundFlag1,
+						soundFlag2);
+				// animations are reversed
+				animation[frameCount - 1 - j] = animationFrameInfo;
+				//System.out.println(info.toString());
+			}
+			animations[i] = animation;
+		}
+		return animations;
+	}
+
+	public Sequence<Image> loadAnimation(AnimationFrameInfo[] animationFrameInfos) throws IOException {
+		initializeIfNeeded(false);
+		SettlerImage[] images = new SettlerImage[animationFrameInfos.length];
+		for (int i = 0; i < animationFrameInfos.length; i++) {
+			AnimationFrameInfo info = animationFrameInfos[i];
+
+			int position = settlerstarts[info.objectId];
+			long[] framePositions = readSequenceHeader(position);
+			reader.skipTo(framePositions[info.objectFrame]);
+			SettlerImage image = DatBitmapReader.getImage(settlerTranslator, reader);
+
+			if (info.torsoId > 0 && info.torsoId != 65535 && torsostarts[info.torsoId] != -1){
+				position = torsostarts[info.torsoId];
+				framePositions = readSequenceHeader(position);
+				if (framePositions.length - 1 < info.torsoFrame){
+					System.out.println("torso frame not found");
+				}
+				else{
+					reader.skipTo(framePositions[info.torsoFrame]);
+					image.setTorso(DatBitmapReader.getImage(torsoTranslator, reader));
+				}
+			}
+
+			if (info.shadowId > 0 && shadowstarts[info.shadowId] != 0){
+				position = shadowstarts[info.shadowId];
+				framePositions = readSequenceHeader(position);
+
+				if (framePositions.length - 1 < info.objectFrame) {
+					System.out.println("shadow frame not found");
+				}
+				else {
+					reader.skipTo(framePositions[info.objectFrame]);
+					image.setShadow(DatBitmapReader.getImage(shadowTranslator, reader));
+				}
+			}
+
+			images[i] = image;
+		}
+		return new ArraySequence<>(images);
 	}
 
 	private synchronized void loadSettlers(int index) throws IOException {
@@ -479,6 +585,19 @@ public class AdvancedDatFileReader implements DatFileSet {
 				images[i].setTorso(torso);
 			}
 		}
+
+		int shadowposition = shadowstarts[index];
+		if (shadowposition >= 0) {
+			long[] shadowPositions = readSequenceHeader(shadowposition);
+			for (int i = 0; i < shadowPositions.length
+					&& i < framePositions.length; i++) {
+				reader.skipTo(shadowPositions[i]);
+				ShadowImage shadow =
+						DatBitmapReader.getImage(shadowTranslator, reader);
+				images[i].setShadow(shadow);
+			}
+		}
+
 
 		settlersequences[index] = new ArraySequence<>(images);
 	}
@@ -517,7 +636,7 @@ public class AdvancedDatFileReader implements DatFileSet {
 		 */
 		@Override
 		public LandscapeImage getImage(int index) {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			if (landscapeimages[index] == null) {
 				loadLandscapeImage(index);
 			}
@@ -526,13 +645,13 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		@Override
 		public int length() {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			return landscapeimages.length;
 		}
 
 		@Override
 		public SingleImage getImageSafe(int index) {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			if (index < 0 || index >= length()) {
 				return NullImage.getInstance();
 			} else {
@@ -545,7 +664,7 @@ public class AdvancedDatFileReader implements DatFileSet {
 	}
 
 	public ByteReader getReaderForLandscape(int index) throws IOException {
-		initializeIfNeeded();
+		initializeIfNeeded(true);
 		reader.skipTo(landscapestarts[index]);
 		return reader;
 	}
@@ -572,7 +691,7 @@ public class AdvancedDatFileReader implements DatFileSet {
 		 */
 		@Override
 		public GuiImage getImage(int index) {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			if (guiimages[index] == null) {
 				loadGuiImage(index);
 			}
@@ -581,13 +700,13 @@ public class AdvancedDatFileReader implements DatFileSet {
 
 		@Override
 		public int length() {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			return guiimages.length;
 		}
 
 		@Override
 		public SingleImage getImageSafe(int index) {
-			initializeIfNeeded();
+			initializeIfNeeded(true);
 			if (index < 0 || index >= length()) {
 				return NullImage.getInstance();
 			} else {
@@ -610,12 +729,12 @@ public class AdvancedDatFileReader implements DatFileSet {
 	}
 
 	public long[] getSettlerPointers(int seqindex) throws IOException {
-		initializeIfNeeded();
+		initializeIfNeeded(true);
 		return readSequenceHeader(settlerstarts[seqindex]);
 	}
 
 	public long[] getTorsoPointers(int seqindex) throws IOException {
-		initializeIfNeeded();
+		initializeIfNeeded(true);
 		int position = torsostarts[seqindex];
 		if (position >= 0) {
 			return readSequenceHeader(position);
@@ -632,14 +751,14 @@ public class AdvancedDatFileReader implements DatFileSet {
 	 * @throws IOException
 	 */
 	public ByteReader getReaderForPointer(long pointer) throws IOException {
-		initializeIfNeeded();
+		initializeIfNeeded(true);
 		reader.skipTo(pointer);
 		return reader;
 	}
 
 	public void generateImageMap(int width, int height, int[] sequences,
 			String id) throws IOException {
-		initializeIfNeeded();
+		initializeIfNeeded(true);
 
 		MultiImageMap map = new MultiImageMap(width, height, id);
 		if (!map.hasCache()) {

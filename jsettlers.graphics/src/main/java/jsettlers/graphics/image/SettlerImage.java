@@ -30,6 +30,7 @@ import jsettlers.graphics.reader.ImageMetadata;
 public class SettlerImage extends SingleImage {
 
 	private SingleImage torso = null;
+	private SingleImage shadow = null;
 
 	/**
 	 * Creates a new settler image.
@@ -45,6 +46,9 @@ public class SettlerImage extends SingleImage {
 
 	@Override
 	public void draw(GLDrawContext gl, Color color) {
+		if (this.shadow != null){
+			shadow.draw(gl, null);
+		}
 		if (this.torso != null) {
 			super.draw(gl, null);
 			this.torso.draw(gl, color);
@@ -55,6 +59,9 @@ public class SettlerImage extends SingleImage {
 
 	@Override
 	public void draw(GLDrawContext gl, Color color, float multiply) {
+		if (this.shadow != null) {
+			this.shadow.draw(gl, null, multiply);
+		}
 		super.draw(gl, null, multiply);
 		if (this.torso != null) {
 			this.torso.draw(gl, color, multiply);
@@ -99,6 +106,9 @@ public class SettlerImage extends SingleImage {
 		if (this.torso != null) {
 			torso.drawAt(gl, buffer, viewX, viewY, iColor);
 		}
+		if (this.shadow != null) {
+			this.shadow.drawAt(gl, buffer, viewX, viewY, -1);
+		}
 	}
 
 	@Override
@@ -108,5 +118,12 @@ public class SettlerImage extends SingleImage {
 		if (this.torso != null) {
 			torso.drawAt(gl, buffer, viewX, viewY, dimColor(color, multiply));
 		}
+		if (this.shadow != null) {
+			this.shadow.drawAt(gl, buffer, viewX, viewY, -1);
+		}
+	}
+
+	public void setShadow(SingleImage shadow) {
+		this.shadow = shadow;
 	}
 }

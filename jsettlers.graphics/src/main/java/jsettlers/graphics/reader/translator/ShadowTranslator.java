@@ -29,7 +29,7 @@ import jsettlers.graphics.reader.bytereader.ByteReader;
 public class ShadowTranslator implements DatBitmapTranslator<ShadowImage> {
 	@Override
 	public short readUntransparentColor(ByteReader reader) throws IOException {
-		return 0;
+		return 1;
 	}
 
 	@Override
@@ -39,7 +39,7 @@ public class ShadowTranslator implements DatBitmapTranslator<ShadowImage> {
 
 	@Override
 	public short getTransparentColor() {
-		return 0x0001;
+		return 0;
 	}
 
 	@Override

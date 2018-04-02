@@ -53,7 +53,7 @@ import jsettlers.graphics.swing.utils.ImageUtils;
 import jsettlers.main.swing.resources.ConfigurationPropertiesFile;
 
 public class DatFileTester {
-	private static final int DAT_FILE_INDEX = 0;
+	private static final int DAT_FILE_INDEX = 13;
 	private static final DatFileType TYPE = DatFileType.RGB565;
 
 	private static final String FILE_NAME_PATTERN = "siedler3_%02d" + TYPE.getFileSuffix();
@@ -138,6 +138,11 @@ public class DatFileTester {
 
 		@Override
 		public void drawContent(GLDrawContext gl2, int width, int height) {
+
+			Color blue = new Color(0xff4286f4);
+			gl2.color(blue.getRed(), blue.getGreen(), blue.getBlue(), blue.getAlpha());
+			gl2.fillQuad(0,0, width, height);
+
 			if (mode == SETTLERS) {
 				SequenceList<Image> sequences = reader.getSettlers();
 				drawSequences(gl2, width, height, sequences);
@@ -164,7 +169,7 @@ public class DatFileTester {
 				maxheight = drawSequence(gl2, width, height, y, seq);
 
 				gl2.color(0, 0, 0, 1);
-				drawer.drawString(20, y + 20, seqIndex + ":");
+				drawer.drawString(-20, y + 20, seqIndex + ":");
 
 				seqIndex++;
 				y -= maxheight + 40;
@@ -174,14 +179,17 @@ public class DatFileTester {
 		private <T extends Image> int drawSequence(GLDrawContext gl2, int width, int height, int y, Sequence<T> seq) {
 			int maxheight = 0;
 			int x = 0;
+			TextDrawer drawer = gl2.getTextDrawer(EFontSize.NORMAL);
 			for (int index = 0; index < seq.length(); index++) {
 				T image = seq.getImage(index);
 				maxheight = Math.max(maxheight, image.getHeight());
 
 				if (x > -offsetX - 100 && x < -offsetX + width + 100 && y > -offsetY - 100 && y < -offsetY + height + 100) {
 					drawImage(gl2, y, index, x, (SingleImage) image);
+					gl2.color(0, 0, 0, 1);
+					drawer.drawString(x + 15 , y - 15, "" + index);
 				}
-				x += 100;
+				x += 200;
 			}
 			return maxheight;
 		}
